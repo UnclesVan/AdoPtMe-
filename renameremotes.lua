@@ -3,6 +3,9 @@ local Fsys = require(game.ReplicatedStorage:WaitForChild("Fsys")).load
 -- Get the init function from RouterClient
 local initFunction = Fsys("RouterClient").init
 
+-- Folder containing the remotes to track
+local remoteFolder = game.ReplicatedStorage:WaitForChild("API")
+
 -- Function to inspect upvalues and identify remotes
 local function inspectUpvalues()
     local remotes = {}  -- Table to collect remotes
@@ -13,19 +16,12 @@ local function inspectUpvalues()
             break
         end
         
-        -- Print upvalue index and its type
-        print("Upvalue index " .. i .. ": Type = " .. typeof(upvalue) .. ", Value = " .. tostring(upvalue))
-        
         -- If the upvalue is a table, let's check its contents
         if typeof(upvalue) == "table" then
-            print("  Table found, inspecting contents...")
             for k, v in pairs(upvalue) do
-                -- Print the key and value types to understand the structure better
-                print("    Key: " .. tostring(k) .. " Type: " .. typeof(k) .. ", Value Type: " .. typeof(v))
-                
                 -- If the value is an Instance (likely a RemoteEvent or RemoteFunction), collect it
                 if typeof(v) == "Instance" and (v:IsA("RemoteEvent") or v:IsA("RemoteFunction")) then
-                    print("    Found remote: " .. v:GetFullName())
+                    -- Log each remote found
                     table.insert(remotes, {key = k, remote = v})  -- Add the remote instance with key to the remotes table
                 end
             end
@@ -35,9 +31,6 @@ local function inspectUpvalues()
     return remotes
 end
 
--- Call the inspect function to log upvalues and collect remotes
-local remotes = inspectUpvalues()
-
 -- Function to rename remotes based on their key
 local function rename(remote, key)
     local nameParts = string.split(key, "/")  -- Split the key by "/"
@@ -45,13 +38,50 @@ local function rename(remote, key)
         local remotename = nameParts[2]
         remote.Name = remotename
     else
-        warn("Invalid key format for remote: " .. key)
+        warn("Invalid key format for remote: " .. key)  -- Notify if the key format is incorrect
     end
 end
 
--- Now rename all collected remotes based on the key
-for _, entry in ipairs(remotes) do
-    rename(entry.remote, entry.key)
+-- Function to rename all existing remotes in the folder
+local function renameExistingRemotes()
+    local remotes = inspectUpvalues()
+
+    -- Rename all collected remotes based on the key
+    for _, entry in ipairs(remotes) do
+        rename(entry.remote, entry.key)
+    end
+    print("Renaming complete.")
 end
 
-print("Renaming complete.")
+-- Monitor for new remotes added to the folder
+local function monitorForNewRemotes()
+    remoteFolder.ChildAdded:Connect(function(child)
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            print("New remote added: " .. child:GetFullName())
+            -- Check and rename the new remote
+            local remotes = inspectUpvalues()
+            for _, entry in ipairs(remotes) do
+                rename(entry.remote, entry.key)
+            end
+        end
+    end)
+end
+
+-- Start monitoring for new remotes
+monitorForNewRemotes()
+
+-- Coroutine for periodic check without freezing
+local function periodicCheck()
+    while true do
+        task.wait(10)  -- Check every 10 seconds (can adjust based on your needs)
+        pcall(renameExistingRemotes)  -- Check and rename any existing remotes periodically
+    end
+end
+
+-- Start the periodic check in a coroutine (non-blocking)
+coroutine.wrap(periodicCheck)()
+
+-- Initial rename for all existing remotes
+renameExistingRemotes()
+
+print("Script initialized and monitoring remotes.")
