@@ -6,6 +6,9 @@ local initFunction = Fsys("RouterClient").init
 -- Folder containing the remotes to track
 local remoteFolder = game.ReplicatedStorage:WaitForChild("API")
 
+-- A flag to ensure we print only once during the initial scan
+local printedOnce = false
+
 -- Function to inspect upvalues and identify remotes
 local function inspectUpvalues()
     local remotes = {}  -- Table to collect remotes
@@ -19,10 +22,17 @@ local function inspectUpvalues()
         -- If the upvalue is a table, let's check its contents
         if typeof(upvalue) == "table" then
             for k, v in pairs(upvalue) do
-                -- If the value is an Instance (likely a RemoteEvent or RemoteFunction), collect it
-                if typeof(v) == "Instance" and (v:IsA("RemoteEvent") or v:IsA("RemoteFunction")) then
-                    -- Log each remote found
-                    table.insert(remotes, {key = k, remote = v})  -- Add the remote instance with key to the remotes table
+                -- Check for RemoteEvents, RemoteFunctions, BindableEvents, and BindableFunctions
+                if typeof(v) == "Instance" then
+                    if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") or v:IsA("BindableEvent") or v:IsA("BindableFunction") then
+                        -- Log the key, type of value, and value
+                        table.insert(remotes, {key = k, remote = v})
+                        -- If it's the first time scanning, print remote information
+                        if not printedOnce then
+                            print("Key: " .. k .. " Type: " .. typeof(k) .. ", Value Type: " .. typeof(v))
+                            print("Found remote: " .. v:GetFullName())
+                        end
+                    end
                 end
             end
         end
@@ -56,7 +66,7 @@ end
 -- Monitor for new remotes added to the folder
 local function monitorForNewRemotes()
     remoteFolder.ChildAdded:Connect(function(child)
-        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") or child:IsA("BindableEvent") or child:IsA("BindableFunction") then
             print("New remote added: " .. child:GetFullName())
             -- Check and rename the new remote
             local remotes = inspectUpvalues()
@@ -67,21 +77,22 @@ local function monitorForNewRemotes()
     end)
 end
 
--- Start monitoring for new remotes
-monitorForNewRemotes()
-
 -- Coroutine for periodic check without freezing
 local function periodicCheck()
     while true do
         task.wait(10)  -- Check every 10 seconds (can adjust based on your needs)
-        pcall(renameExistingRemotes)  -- Check and rename any existing remotes periodically
+        -- Scan and rename existing remotes periodically
+        pcall(renameExistingRemotes)
     end
 end
 
 -- Start the periodic check in a coroutine (non-blocking)
 coroutine.wrap(periodicCheck)()
 
--- Initial rename for all existing remotes
+-- Initial scan and rename for all existing remotes (print once)
 renameExistingRemotes()
+
+-- Set the flag to prevent printing more than once
+printedOnce = true
 
 print("Script initialized and monitoring remotes.")
