@@ -60,7 +60,7 @@ local function renameExistingRemotes()
     for _, entry in ipairs(remotes) do
         rename(entry.remote, entry.key)
     end
-    print("")
+
 end
 
 -- Monitor for new remotes added to the folder
