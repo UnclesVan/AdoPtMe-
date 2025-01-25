@@ -60,7 +60,16 @@ local function renameExistingRemotes()
     for _, entry in ipairs(remotes) do
         rename(entry.remote, entry.key)
     end
+end
 
+-- Function to display dehashed message
+local function displayDehashedMessage()
+    local uiElement = game:GetService("Players").LocalPlayer.PlayerGui.HintApp.LargeTextLabel
+    uiElement.Text = "Remotes has been Dehashed!"
+    uiElement.TextColor3 = Color3.fromRGB(0, 255, 0)  -- Set text color to green
+    wait(3)
+    uiElement.Text = ""
+    uiElement.TextColor3 = Color3.fromRGB(255, 255, 255)  -- Reset text color to default (white)
 end
 
 -- Monitor for new remotes added to the folder
@@ -91,6 +100,9 @@ coroutine.wrap(periodicCheck)()
 
 -- Initial scan and rename for all existing remotes (print once)
 renameExistingRemotes()
+
+-- Display dehashed message
+displayDehashedMessage()
 
 -- Set the flag to prevent printing more than once
 printedOnce = true
